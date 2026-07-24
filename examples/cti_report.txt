@@ -1,0 +1,50 @@
+Incident Summary: Intrusion at Northwind Logistics
+
+On March 3rd, the Northwind Logistics security team identified anomalous activity
+originating from a compromised finance workstation (WKS-FIN-014). The intrusion began
+when an employee opened a malicious email attachment disguised as an invoice, which
+dropped a lightweight loader and established a foothold on the host. Analysts later
+confirmed this initial payload beaconed out to an external command-and-control server
+over HTTPS on port 443, blending in with normal web traffic.
+
+Approximately two hours after initial access, the attacker escalated privileges on
+WKS-FIN-014 and began credential harvesting. Endpoint telemetry captured a PowerShell
+process spawning with an encoded command line that invoked a reflective loader
+consistent with Mimikatz. The process subsequently accessed the memory space of
+lsass.exe, and command-line arguments referencing sekurlsa::logonpasswords were
+observed in the Sysmon process creation logs. Adversaries may attempt to access
+credential material stored in the process memory of the Local Security Authority
+Subsystem Service (LSASS) in exactly this way, allowing the attacker to harvest
+plaintext credentials and NTLM hashes for several domain accounts, including a
+privileged IT administrator account.
+
+Using the harvested administrator credentials, the attacker used Valid Accounts to log
+into a second host, FS-BACKUP-02, via the Remote Desktop Protocol (RDP) roughly forty
+minutes later. Investigators found RDP connection logs (Event ID 4624, Logon Type 10)
+showing an interactive remote desktop session, with the adversary performing actions as
+the logged-on administrator user on the remote system desktop. This gave the attacker
+direct interactive access to a system that hosts nightly backup jobs and holds elevated
+network permissions across the finance VLAN.
+
+To maintain access across reboots, the attacker abused the Windows Task Scheduler to
+perform task scheduling for recurring execution of malicious code on FS-BACKUP-02.
+Using the schtasks command-line utility, they registered a new scheduled task named
+WindowsDefenderUpdateCheck via schtasks /create /sc daily /ru SYSTEM, configured to
+relaunch an implant executable stored in C:\ProgramData\Microsoft\Diagnostics\svchelper.exe
+every day at 3:00 AM. This scheduled task persistence technique allowed the malware to
+survive reboots and continue operating even if the original loader on WKS-FIN-014 was
+cleaned up.
+
+Over the following three days, the attacker used the FS-BACKUP-02 foothold to stage
+and exfiltrate several gigabytes of financial records to an external cloud storage
+provider before the security team detected the scheduled task anomaly during a routine
+threat hunt and isolated both affected hosts.
+
+Recommended detections should focus on three core behaviors observed in this incident:
+PowerShell-based LSASS memory access consistent with credential dumping tools such as
+Mimikatz; interactive RDP logons using recently compromised privileged credentials
+between hosts that do not normally communicate; and the creation of suspicious
+scheduled tasks disguised as legitimate system update processes, particularly those
+configured to run as SYSTEM and launch binaries from non-standard ProgramData
+locations. Correlating these three behaviors in sequence would have provided earlier
+detection of this intrusion chain.

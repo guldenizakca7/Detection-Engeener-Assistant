@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+pdfplumber
+# Required by FastAPI/Starlette for UploadFile / multipart form parsing (the
+# /api/upload-pdf endpoint) -- verified by actually starting the server,
+# which fails at import time with "Form data requires python-multipart" if
+# this is missing.
+python-multipart

@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Detection Engineering Assistant</title>
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: var(--font-sans, system-ui, sans-serif);
+    background: var(--surface-0, #f5f5f5);
+    color: var(--text-primary, #1a1a1a);
+  }
+
+  /* --- Top bar --- */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: var(--surface-1, #ffffff);
+    border-bottom: 1px solid var(--border, #e5e5e5);
+  }
+
+  .topbar-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  .topbar-title .accent {
+    color: var(--text-accent, #2563eb);
+  }
+
+  /* --- Buttons --- */
+  .btn {
+    font-family: inherit;
+    font-size: 0.9rem;
+    padding: 8px 16px;
+    border-radius: var(--radius, 8px);
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background: var(--fill-accent, #2563eb);
+    color: var(--on-accent, #ffffff);
+    border-color: var(--fill-accent, #2563eb);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-primary, #1a1a1a);
+    border-color: var(--border, #e5e5e5);
+  }
+
+  .btn-ghost:hover {
+    background: var(--surface-2, #ffffff);
+  }
+
+  /* --- Quick commands bar --- */
+  .quick-commands {
+    padding: 12px 24px;
+    background: var(--surface-1, #ffffff);
+    border-bottom: 1px solid var(--border, #e5e5e5);
+  }
+
+  .quick-commands-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-secondary, #6b7280);
+    margin-bottom: 8px;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .chip {
+    font-family: inherit;
+    font-size: 0.85rem;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border, #e5e5e5);
+    background: var(--bg-accent, #eff6ff);
+    color: var(--text-accent, #2563eb);
+    cursor: pointer;
+  }
+
+  .chip:hover {
+    border-color: var(--border-accent, #2563eb);
+  }
+
+  /* --- 2x2 grid --- */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    padding: 24px;
+  }
+
+  @media (max-width: 860px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--surface-1, #ffffff);
+    border: 1px solid var(--border, #e5e5e5);
+    border-radius: var(--radius, 8px);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 240px;
+  }
+
+  .panel h2 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--text-primary, #1a1a1a);
+  }
+
+  #inp, #cti-input {
+    font-family: inherit;
+    font-size: 0.95rem;
+    padding: 10px 12px;
+    border-radius: var(--radius, 8px);
+    border: 1px solid var(--border, #e5e5e5);
+    background: var(--surface-2, #ffffff);
+    color: var(--text-primary, #1a1a1a);
+  }
+
+  #cti-input {
+    min-height: 140px;
+    resize: vertical;
+    font-family: var(--font-mono, monospace);
+  }
+
+  /* --- PDF upload --- */
+  .pdf-upload {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .pdf-file-input {
+    /* Real input is invisible; the associated <label> (styled as a button)
+       still opens the file picker when clicked. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .pdf-upload-label {
+    display: inline-block;
+  }
+
+  .pdf-status {
+    font-size: 0.82rem;
+  }
+
+  .pdf-status-ok {
+    color: #16a34a;
+  }
+
+  /* --- Output area --- */
+  .output {
+    flex: 1;
+    min-height: 160px;
+    background: var(--surface-2, #ffffff);
+    border: 1px solid var(--border, #e5e5e5);
+    border-radius: var(--radius, 8px);
+    padding: 12px;
+    overflow: auto;
+  }
+
+  .muted {
+    color: var(--text-muted, #9ca3af);
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
+  .error-text {
+    color: #dc2626;
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+    margin: 0;
+  }
+
+  .technique-select {
+    font-family: inherit;
+    font-size: 0.85rem;
+    padding: 6px 8px;
+    margin-bottom: 8px;
+    border-radius: var(--radius, 8px);
+    border: 1px solid var(--border, #e5e5e5);
+    background: var(--surface-1, #ffffff);
+    color: var(--text-primary, #1a1a1a);
+  }
+
+  .technique-header {
+    font-size: 0.85rem;
+    color: var(--text-secondary, #6b7280);
+    margin-bottom: 8px;
+  }
+
+  .format-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  .format-tab {
+    font-family: inherit;
+    font-size: 0.78rem;
+    padding: 4px 10px;
+    border-radius: var(--radius, 8px);
+    border: 1px solid var(--border, #e5e5e5);
+    background: transparent;
+    color: var(--text-secondary, #6b7280);
+    cursor: pointer;
+  }
+
+  .format-tab.active {
+    border-color: var(--border-accent, #2563eb);
+    background: var(--bg-accent, #eff6ff);
+    color: var(--text-accent, #2563eb);
+  }
+
+  .format-content {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.82rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+    color: var(--text-primary, #1a1a1a);
+  }
+
+  /* --- Spinner --- */
+  .spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid var(--border, #e5e5e5);
+    border-top-color: var(--fill-accent, #2563eb);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 20px auto;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* --- History overlay --- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    justify-content: flex-end;
+    z-index: 100;
+  }
+
+  .overlay.hidden {
+    display: none;
+  }
+
+  .history-panel {
+    width: min(380px, 90vw);
+    height: 100%;
+    background: var(--surface-1, #ffffff);
+    border-left: 1px solid var(--border-strong, #d1d5db);
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  .history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .history-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+
+  .history-item {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border, #e5e5e5);
+  }
+
+  .history-item:last-child {
+    border-bottom: none;
+  }
+
+  .history-item-time {
+    font-size: 0.75rem;
+    color: var(--text-muted, #9ca3af);
+  }
+
+  .history-item-input {
+    font-size: 0.88rem;
+    margin: 4px 0;
+    color: var(--text-primary, #1a1a1a);
+  }
+
+  .history-item-meta {
+    font-size: 0.78rem;
+    color: var(--text-secondary, #6b7280);
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-title">Detection Engineering <span class="accent">Assistant</span></div>
+  <button id="history-btn" class="btn btn-ghost" type="button">Geçmiş</button>
+</header>
+
+<div class="quick-commands">
+  <span class="quick-commands-label">En çok kullanılan komutlar</span>
+  <div class="chips" id="chips">
+    <button class="chip" type="button" data-text="PowerShell credential dumping">PowerShell credential dumping</button>
+    <button class="chip" type="button" data-text="Mimikatz LSASS erişimi">Mimikatz LSASS erişimi</button>
+    <button class="chip" type="button" data-text="Scheduled task persistence">Scheduled task persistence</button>
+    <button class="chip" type="button" data-text="RDP lateral movement">RDP lateral movement</button>
+    <button class="chip" type="button" data-text="Registry run key">Registry run key</button>
+    <button class="chip" type="button" data-text="DCSync saldırısı">DCSync saldırısı</button>
+  </div>
+</div>
+
+<main class="grid">
+  <section class="panel">
+    <h2>Kural yaz</h2>
+    <input id="inp" type="text" placeholder="Örn: PowerShell ile kimlik bilgisi çalma tespiti" />
+    <button id="btn-sentence" class="btn btn-primary" type="button">Oluştur</button>
+  </section>
+
+  <section class="panel">
+    <h2>Çıktı</h2>
+    <div id="output-sentence" class="output">
+      <p class="muted">Sonuçlar burada görünecek.</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Rapor yükle</h2>
+    <div class="pdf-upload">
+      <label for="pdf-file" class="btn btn-ghost pdf-upload-label">📎 PDF yükle</label>
+      <input id="pdf-file" type="file" accept=".pdf" class="pdf-file-input" />
+      <span id="pdf-status" class="pdf-status"></span>
+    </div>
+    <textarea id="cti-input" placeholder="CTI raporunu buraya yapıştırın..."></textarea>
+    <button id="btn-cti" class="btn btn-primary" type="button">Analiz et</button>
+  </section>
+
+  <section class="panel">
+    <h2>Çıktı</h2>
+    <div id="output-cti" class="output">
+      <p class="muted">Sonuçlar burada görünecek.</p>
+    </div>
+  </section>
+</main>
+
+<div id="history-overlay" class="overlay hidden">
+  <div class="history-panel">
+    <div class="history-header">
+      <h2>Geçmiş</h2>
+      <button id="history-close" class="btn btn-ghost" type="button">Kapat</button>
+    </div>
+    <div id="history-list"></div>
+  </div>
+</div>
+
+<script>
+  const FORMATS = [
+    ["sigma", "Sigma"],
+    ["kql", "KQL"],
+    ["splunk", "Splunk"],
+    ["elastic", "Elastic"],
+    ["crowdstrike", "CrowdStrike"],
+    ["chronicle", "Chronicle"],
+    ["sentinelone", "SentinelOne"],
+    ["carbonblack", "Carbon Black"],
+    ["loki", "Loki"],
+  ];
+
+  function clearEl(el) {
+    while (el.firstChild) el.removeChild(el.firstChild);
+  }
+
+  function setLoading(button, outputEl, loading) {
+    button.disabled = loading;
+    if (loading) {
+      clearEl(outputEl);
+      const spinner = document.createElement("div");
+      spinner.className = "spinner";
+      outputEl.appendChild(spinner);
+    }
+  }
+
+  function showError(outputEl, message) {
+    clearEl(outputEl);
+    const p = document.createElement("p");
+    p.className = "error-text";
+    p.textContent = message;
+    outputEl.appendChild(p);
+  }
+
+  function renderOutput(container, techniques) {
+    clearEl(container);
+
+    if (!techniques || techniques.length === 0) {
+      const p = document.createElement("p");
+      p.className = "muted";
+      p.textContent = "Teknik bulunamadı.";
+      container.appendChild(p);
+      return;
+    }
+
+    let selectEl = null;
+    if (techniques.length > 1) {
+      selectEl = document.createElement("select");
+      selectEl.className = "technique-select";
+      techniques.forEach((t, i) => {
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = `${t.technique_id} — ${t.technique_name}`;
+        selectEl.appendChild(opt);
+      });
+      container.appendChild(selectEl);
+    }
+
+    const headerEl = document.createElement("div");
+    headerEl.className = "technique-header";
+    container.appendChild(headerEl);
+
+    const tabsEl = document.createElement("div");
+    tabsEl.className = "format-tabs";
+    container.appendChild(tabsEl);
+
+    const contentEl = document.createElement("pre");
+    contentEl.className = "format-content";
+    container.appendChild(contentEl);
+
+    function showFormat(technique, key) {
+      const value = technique.rules ? technique.rules[key] : null;
+      contentEl.textContent = value ? value : "[bu format için kural üretilemedi]";
+    }
+
+    function showTechnique(index) {
+      const t = techniques[index];
+      headerEl.textContent = `${t.technique_id} — ${t.technique_name} (${t.tactic})`;
+
+      clearEl(tabsEl);
+      FORMATS.forEach(([key, label], i) => {
+        const tabBtn = document.createElement("button");
+        tabBtn.type = "button";
+        tabBtn.className = "format-tab" + (i === 0 ? " active" : "");
+        tabBtn.textContent = label;
+        tabBtn.addEventListener("click", () => {
+          tabsEl.querySelectorAll(".format-tab").forEach((b) => b.classList.remove("active"));
+          tabBtn.classList.add("active");
+          showFormat(t, key);
+        });
+        tabsEl.appendChild(tabBtn);
+      });
+
+      showFormat(t, FORMATS[0][0]);
+    }
+
+    if (selectEl) {
+      selectEl.addEventListener("change", () => showTechnique(Number(selectEl.value)));
+    }
+
+    showTechnique(0);
+  }
+
+  async function generate(userInput, mode, button, outputEl) {
+    setLoading(button, outputEl, true);
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input: userInput, mode: mode }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showError(outputEl, data.detail || "Bilinmeyen hata");
+        return;
+      }
+      renderOutput(outputEl, data.techniques);
+    } catch (err) {
+      showError(outputEl, String(err));
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  document.getElementById("chips").addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if (!chip) return;
+    document.getElementById("inp").value = chip.dataset.text;
+  });
+
+  document.getElementById("btn-sentence").addEventListener("click", () => {
+    const input = document.getElementById("inp").value.trim();
+    if (!input) return;
+    generate(input, "sentence", document.getElementById("btn-sentence"), document.getElementById("output-sentence"));
+  });
+
+  document.getElementById("pdf-file").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    const statusEl = document.getElementById("pdf-status");
+    if (!file) return;
+
+    statusEl.className = "pdf-status muted";
+    statusEl.textContent = "PDF okunuyor...";
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/upload-pdf", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) {
+        statusEl.className = "pdf-status error-text";
+        statusEl.textContent = data.detail || "Bilinmeyen hata";
+        return;
+      }
+      document.getElementById("cti-input").value = data.text;
+      statusEl.className = "pdf-status pdf-status-ok";
+      statusEl.textContent = `✓ PDF yüklendi: ${file.name}`;
+    } catch (err) {
+      statusEl.className = "pdf-status error-text";
+      statusEl.textContent = String(err);
+    } finally {
+      e.target.value = "";
+    }
+  });
+
+  document.getElementById("btn-cti").addEventListener("click", () => {
+    const input = document.getElementById("cti-input").value.trim();
+    if (!input) return;
+    generate(input, "cti", document.getElementById("btn-cti"), document.getElementById("output-cti"));
+  });
+
+  // --- History ---
+
+  function truncate(text, maxLen) {
+    if (text.length <= maxLen) return text;
+    return text.slice(0, maxLen) + "…";
+  }
+
+  function renderHistory(items) {
+    const list = document.getElementById("history-list");
+    clearEl(list);
+
+    if (!items || items.length === 0) {
+      const p = document.createElement("p");
+      p.className = "muted";
+      p.textContent = "Henüz geçmiş yok.";
+      list.appendChild(p);
+      return;
+    }
+
+    items.slice().reverse().forEach((item) => {
+      const div = document.createElement("div");
+      div.className = "history-item";
+
+      const timeEl = document.createElement("div");
+      timeEl.className = "history-item-time";
+      timeEl.textContent = item.timestamp;
+
+      const inputEl = document.createElement("div");
+      inputEl.className = "history-item-input";
+      inputEl.textContent = truncate(item.input, 80);
+
+      const metaEl = document.createElement("div");
+      metaEl.className = "history-item-meta";
+      metaEl.textContent = `${item.technique_count} teknik · ${item.rule_count} kural`;
+
+      div.appendChild(timeEl);
+      div.appendChild(inputEl);
+      div.appendChild(metaEl);
+      list.appendChild(div);
+    });
+  }
+
+  document.getElementById("history-btn").addEventListener("click", async () => {
+    const overlay = document.getElementById("history-overlay");
+    overlay.classList.remove("hidden");
+    try {
+      const res = await fetch("/api/history");
+      const items = await res.json();
+      renderHistory(items);
+    } catch (err) {
+      renderHistory([]);
+    }
+  });
+
+  document.getElementById("history-close").addEventListener("click", () => {
+    document.getElementById("history-overlay").classList.add("hidden");
+  });
+</script>
+
+</body>
+</html>

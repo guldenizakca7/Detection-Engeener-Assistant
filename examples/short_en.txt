@@ -1,0 +1,1 @@
+Detect PowerShell credential dumping via LSASS memory access
