@@ -6,6 +6,7 @@ from .cti_processor import (
     extract_techniques_from_report,
     extract_context_for_technique,
 )
+from .cache import get_cached_result, save_to_cache, clear_cache
 
 __all__ = [
     "detect_mitre_technique",
@@ -13,4 +14,7 @@ __all__ = [
     "is_cti_report",
     "extract_techniques_from_report",
     "extract_context_for_technique",
+    "get_cached_result",
+    "save_to_cache",
+    "clear_cache",
 ]

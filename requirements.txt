@@ -41,6 +41,33 @@ pysigma-backend-loki>=1.0.0
 pysigma-backend-sentinelone>=0.1.3
 pysigma-backend-carbonblack>=0.1.12
 
+# Optional LLM providers (install only the ones you use -- see notes below)
+# Verified 2026-07-25: `from mistralai import Mistral` in the task spec does
+# NOT work with mistralai>=1.0.0 (installed 2.7.2) -- the top-level package
+# has an empty namespace. The real client is `mistralai.client.Mistral`, and
+# there's no MistralAPIStatusException; HTTP failures raise
+# mistralai.client.errors.SDKError with a .status_code attribute instead.
+# together>=1.2.0 (installed 2.28.0) has no `together.error` submodule
+# either -- RateLimitError/AuthenticationError/APIConnectionError live
+# directly on the top-level `together` package. src/llm/mistral_provider.py
+# and src/llm/together_provider.py already account for both of these.
+#
+# KNOWN CONFLICT: installing mistralai alongside chromadb (both already in
+# this file) can downgrade opentelemetry-api/opentelemetry-semantic-conventions
+# below what chromadb's opentelemetry-sdk needs, breaking `import chromadb`
+# with "cannot import name '_ON_EMIT_RECURSION_COUNT_KEY'". pip installs this
+# combination without erroring, so you won't see it until something tries to
+# import chromadb. If you hit it: pip install "opentelemetry-api==1.44.0"
+# "opentelemetry-semantic-conventions==0.65b0" to restore what chromadb
+# needs (mistralai still worked fine against that newer pin when we tested
+# it). This is exactly why these are optional, install-what-you-use deps
+# rather than being merged into the required list above.
+openai>=1.0.0
+anthropic>=0.20.0
+google-generativeai>=0.7.0
+mistralai>=1.0.0
+together>=1.2.0
+
 # IR schema validation
 jsonschema>=4.20.0
 pyyaml>=6.0

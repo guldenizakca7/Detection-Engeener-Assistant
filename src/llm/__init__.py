@@ -1,45 +1,64 @@
 """Factory for LLM providers, selected via the LLM_PROVIDER env variable."""
 from __future__ import annotations
 
+import importlib
 import os
 
 from .base import BaseLLM
-from .groq import GroqLLM
-from .ollama import OllamaLLM
 
-_PROVIDERS = {
-    "ollama": OllamaLLM,
-    "groq": GroqLLM,
+# (module path, class name). Providers are imported lazily inside get_llm()
+# so that a missing optional SDK (e.g. `openai` not installed) only breaks
+# that one provider, not every provider or the whole package import.
+PROVIDER_MAP = {
+    "ollama": ("src.llm.ollama", "OllamaLLM"),
+    "groq": ("src.llm.groq", "GroqLLM"),
+    "openai": ("src.llm.openai_provider", "OpenAILLM"),
+    "anthropic": ("src.llm.anthropic_provider", "AnthropicLLM"),
+    "gemini": ("src.llm.gemini_provider", "GeminiLLM"),
+    "mistral": ("src.llm.mistral_provider", "MistralLLM"),
+    "together": ("src.llm.together_provider", "TogetherLLM"),
 }
 
 
 def get_llm(model_type: str) -> BaseLLM:
     """Return an LLM provider instance for the given stage.
 
-    The provider is selected via the LLM_PROVIDER env variable ('ollama' or 'groq').
+    The provider is selected via the LLM_PROVIDER env variable (one of
+    PROVIDER_MAP's keys: ollama, groq, openai, anthropic, gemini, mistral,
+    together). The provider's module is imported lazily, so only the SDK for
+    the selected provider needs to be installed.
 
     Args:
         model_type: Either "stage1" or "stage2".
 
     Returns:
-        An OllamaLLM or GroqLLM instance configured for that stage.
+        A BaseLLM instance configured for that stage.
 
     Raises:
-        ValueError: If LLM_PROVIDER is unset or not one of the known providers.
+        ValueError: If LLM_PROVIDER is unset or not one of PROVIDER_MAP's keys.
+        RuntimeError: If the selected provider's SDK package isn't installed.
     """
-    provider = os.getenv("LLM_PROVIDER")
+    provider = os.getenv("LLM_PROVIDER", "").strip().lower()
     if not provider:
         raise ValueError(
-            "LLM_PROVIDER is not set. Add LLM_PROVIDER=ollama or LLM_PROVIDER=groq to your .env file."
+            "LLM_PROVIDER is not set. Add LLM_PROVIDER=<provider> to your .env file. "
+            f"Supported: {', '.join(PROVIDER_MAP)}."
         )
 
-    provider = provider.strip().lower()
-    if provider not in _PROVIDERS:
-        raise ValueError(
-            f"Unknown LLM_PROVIDER '{provider}'. Expected one of: {', '.join(_PROVIDERS)}."
-        )
+    if provider not in PROVIDER_MAP:
+        raise ValueError(f"Unknown LLM_PROVIDER: {provider}. Supported: {list(PROVIDER_MAP.keys())}")
 
-    return _PROVIDERS[provider](model_type)
+    module_path, class_name = PROVIDER_MAP[provider]
+    try:
+        module = importlib.import_module(module_path)
+        cls = getattr(module, class_name)
+    except ImportError as exc:
+        raise RuntimeError(
+            f"Provider '{provider}' requires additional packages. "
+            f"Run: pip install -r requirements.txt\nDetails: {exc}"
+        ) from exc
+
+    return cls(model_type)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,8 @@
 """Stage 2 — IR generation from a validated MITRE technique + user input or CTI context."""
 from __future__ import annotations
 
+import json
+
 from src.llm import get_llm
 
 try:
@@ -34,9 +36,98 @@ Only include the detection.* sub-objects that are actually relevant; omit the re
 
 MAX_VALIDATION_RETRIES = 3
 
+# Two worked examples showing what a high-quality IR looks like for a given
+# MITRE technique + input description. Each entry is
+# (technique_dict, input_description, expected_ir_dict).
+FEW_SHOT_EXAMPLES = [
+    (
+        {"id": "T1003.001", "name": "LSASS Memory", "tactic": "credential-access"},
+        "PowerShell credential dumping",
+        {
+            "meta": {
+                "title": "PowerShell LSASS Credential Dumping",
+                "description": "Detects PowerShell accessing LSASS memory to dump credentials using known tools and methods",
+                "severity": "high",
+                "confidence": "high",
+            },
+            "mitre": {
+                "tactic": "credential-access",
+                "technique_id": "T1003.001",
+                "technique_name": "LSASS Memory",
+            },
+            "log_source": {
+                "platform": "windows",
+                "category": "process_creation",
+                "product": "sysmon",
+            },
+            "detection": {
+                "process": {
+                    "name": ["powershell.exe", "pwsh.exe"],
+                    "command_contains": ["sekurlsa", "lsass", "mimikatz", "procdump", "MiniDump", "comsvcs"],
+                }
+            },
+            "false_positives": [
+                "Legitimate PowerShell scripts accessing LSASS for monitoring",
+                "Penetration testing activities",
+            ],
+            "references": ["https://attack.mitre.org/techniques/T1003/001/"],
+        },
+    ),
+    (
+        {"id": "T1053.005", "name": "Scheduled Task", "tactic": "persistence"},
+        "Scheduled task for persistence",
+        {
+            "meta": {
+                "title": "Suspicious Scheduled Task Creation",
+                "description": "Detects creation of scheduled tasks commonly used for persistence by threat actors",
+                "severity": "medium",
+                "confidence": "high",
+            },
+            "mitre": {
+                "tactic": "persistence",
+                "technique_id": "T1053.005",
+                "technique_name": "Scheduled Task",
+            },
+            "log_source": {
+                "platform": "windows",
+                "category": "process_creation",
+                "product": "sysmon",
+            },
+            "detection": {
+                "process": {
+                    "name": ["schtasks.exe"],
+                    "command_contains": ["/create", "/sc", "/tr", "/tn", "/ru"],
+                }
+            },
+            "false_positives": [
+                "Legitimate software installing scheduled tasks",
+                "System administrators creating maintenance tasks",
+            ],
+            "references": ["https://attack.mitre.org/techniques/T1053/005/"],
+        },
+    ),
+]
+
+
+def _build_few_shot_block() -> str:
+    """Render FEW_SHOT_EXAMPLES into the "EXAMPLE 1 / EXAMPLE 2 / Now generate..." block."""
+    parts = ["Here are examples of high-quality IR outputs:"]
+    for i, (technique, description, expected_ir) in enumerate(FEW_SHOT_EXAMPLES, start=1):
+        parts.append(
+            f"\nEXAMPLE {i}:\n"
+            f"Input technique: {technique['id']} {technique['name']}, {technique['tactic']}\n"
+            f"Input description: {description}\n\n"
+            f"Expected IR output:\n{json.dumps(expected_ir, indent=2)}"
+        )
+    parts.append("\nNow generate the IR for the following:")
+    return "\n".join(parts)
+
+
+FEW_SHOT_BLOCK = _build_few_shot_block()
+
 
 def _build_prompt(user_input: str, mitre_technique: dict, context_snippet: str | None) -> str:
-    """Build the Stage 2 prompt from the validated technique plus input or CTI context."""
+    """Build the Stage 2 prompt: few-shot examples, then the validated technique plus input or CTI context."""
     technique_block = (
         "MITRE Technique:\n"
         f"  ID: {mitre_technique.get('id')}\n"
@@ -49,7 +140,7 @@ def _build_prompt(user_input: str, mitre_technique: dict, context_snippet: str |
     else:
         input_block = f"User input:\n{user_input}"
 
-    return f"{technique_block}\n{input_block}\n\n{IR_SCHEMA_DESCRIPTION}"
+    return f"{FEW_SHOT_BLOCK}\n\n{technique_block}\n{input_block}\n\n{IR_SCHEMA_DESCRIPTION}"
 
 
 def generate_ir(
@@ -63,7 +154,7 @@ def generate_ir(
     sent to the LLM — never the full report. In short-sentence mode
     (context_snippet is None), the original user_input is sent instead.
 
-    Calls the Stage 2 LLM (temperature 0.2, set in OllamaLLM/GroqLLM). If
+    Calls the Stage 2 LLM (temperature 0.05, set in OllamaLLM/GroqLLM). If
     src.ir.validator is importable, retries up to MAX_VALIDATION_RETRIES times,
     re-prompting with the validation errors on failure; otherwise returns the
     LLM's JSON output unvalidated (with a printed warning).

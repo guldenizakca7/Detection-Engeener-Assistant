@@ -20,7 +20,9 @@ from src.pipeline import (
     extract_context_for_technique,
     extract_techniques_from_report,
     generate_ir,
+    get_cached_result,
     is_cti_report,
+    save_to_cache,
 )
 from src.pipeline.cti_processor import chunk_report
 from src.rules import convert_ir
@@ -60,6 +62,11 @@ def print_banner() -> None:
 
 
 def run_short_sentence(user_input: str) -> list[tuple[dict, dict, dict]]:
+    cached = get_cached_result(user_input, "sentence")
+    if cached is not None:
+        console.print("[dim]Cache hit — returning cached result.[/dim]")
+        return cached
+
     console.print("[dim]Detecting MITRE technique...[/dim]")
     stage1_output = detect_mitre_technique(user_input)
 
@@ -86,10 +93,16 @@ def run_short_sentence(user_input: str) -> list[tuple[dict, dict, dict]]:
                 sub_formats = convert_ir(sub_ir)
                 results.append(({"technique_id": subtechnique["id"]}, sub_ir, sub_formats))
 
+    save_to_cache(user_input, "sentence", results)
     return results
 
 
 def run_cti_report(report: str) -> list[tuple[dict, dict, dict]]:
+    cached = get_cached_result(report, "cti")
+    if cached is not None:
+        console.print("[dim]Cache hit — returning cached result.[/dim]")
+        return cached
+
     console.print("[dim]Extracting candidate techniques from report...[/dim]")
     technique_list = extract_techniques_from_report(report)
     report_chunks = chunk_report(report)
@@ -124,6 +137,7 @@ def run_cti_report(report: str) -> list[tuple[dict, dict, dict]]:
                     sub_formats = convert_ir(sub_ir)
                     results.append(({"technique_id": subtechnique["id"]}, sub_ir, sub_formats))
 
+    save_to_cache(report, "cti", results)
     return results
 
 

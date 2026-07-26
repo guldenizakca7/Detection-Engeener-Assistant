@@ -8,7 +8,7 @@ import groq
 
 from .base import BaseLLM
 
-STAGE_TEMPERATURES = {"stage1": 0.1, "stage2": 0.2}
+STAGE_TEMPERATURES = {"stage1": 0.1, "stage2": 0.05}
 STAGE_ENV_VARS = {"stage1": "STAGE1_MODEL_GROQ", "stage2": "STAGE2_MODEL_GROQ"}
 RATE_LIMIT_BACKOFF_SECONDS = (2, 4, 8)
 

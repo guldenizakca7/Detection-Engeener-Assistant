@@ -31,6 +31,8 @@ from src.pipeline import (
     extract_context_for_technique,
     extract_techniques_from_report,
     generate_ir,
+    get_cached_result,
+    save_to_cache,
 )
 from src.pipeline.cti_processor import chunk_report
 from src.rules import convert_ir
@@ -59,9 +61,24 @@ class GenerateRequest(BaseModel):
 # sub-technique), every one of its sub-techniques (src.mitre.get_subtechniques)
 # is processed too and appended to the results list, so a query like "T1059"
 # returns rules for the parent plus all of its sub-techniques, not just one.
+#
+# Cache mode strings are prefixed with "dashboard-" rather than reusing
+# main.py's plain "sentence"/"cti" cache keys. src.pipeline.cache keys are
+# input+mode only, with no awareness of which caller wrote them -- and
+# main.py caches (tech_info, ir, formats) 3-tuples while this module caches
+# (ir, formats) 2-tuples. If both wrote to the same "sentence"/"cti" keys,
+# whichever ran second for a given input could read back the other's
+# differently-shaped cached list and crash trying to unpack it. Distinct
+# prefixes keep the two caches (and JSON shapes) fully separate.
+CACHE_MODE_SENTENCE = "dashboard-sentence"
+CACHE_MODE_CTI = "dashboard-cti"
 
 
 def _run_short_sentence(user_input: str) -> list[dict]:
+    cached = get_cached_result(user_input, CACHE_MODE_SENTENCE)
+    if cached is not None:
+        return cached
+
     stage1_output = detect_mitre_technique(user_input)
     validated_technique = handle_validation(stage1_output)
 
@@ -75,10 +92,15 @@ def _run_short_sentence(user_input: str) -> list[dict]:
             sub_formats = convert_ir(sub_ir)
             results.append((sub_ir, sub_formats))
 
+    save_to_cache(user_input, CACHE_MODE_SENTENCE, results)
     return results
 
 
 def _run_cti_report(report: str) -> list[dict]:
+    cached = get_cached_result(report, CACHE_MODE_CTI)
+    if cached is not None:
+        return cached
+
     technique_list = extract_techniques_from_report(report)
     report_chunks = chunk_report(report)
 
@@ -103,6 +125,7 @@ def _run_cti_report(report: str) -> list[dict]:
                 sub_formats = convert_ir(sub_ir)
                 results.append((sub_ir, sub_formats))
 
+    save_to_cache(report, CACHE_MODE_CTI, results)
     return results
 
 

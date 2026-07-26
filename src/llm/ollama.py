@@ -8,7 +8,7 @@ import requests
 from .base import BaseLLM
 
 DEFAULT_TIMEOUT = 120
-STAGE_TEMPERATURES = {"stage1": 0.1, "stage2": 0.2}
+STAGE_TEMPERATURES = {"stage1": 0.1, "stage2": 0.05}
 STAGE_ENV_VARS = {"stage1": "STAGE1_MODEL_OLLAMA", "stage2": "STAGE2_MODEL_OLLAMA"}
 
 

@@ -10,6 +10,9 @@ __pycache__/
 data/mitre_techniques.json
 data/chroma/
 
+# Pipeline result cache (local runtime data)
+data/cache/
+
 # Generated rule output
 output/*
 !output/.gitkeep
