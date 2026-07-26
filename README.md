@@ -239,11 +239,3 @@ dosyasına bakın. Kısaca:
 Bir LLM sağlayıcısı yapılandırılmamışsa veya erişilemiyorsa, her test `SKIPPED: ...`
 yazdırıp 0 koduyla çıkar; gerçek bir assertion hatası her zaman iz (traceback) ile
 başarısız olur.
-
-## Katkıda Bulunma
-
-PR ve issue'lar memnuniyetle karşılanır.
-
-## Lisans
-
-MIT
